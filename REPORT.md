@@ -4,6 +4,7 @@
 - OS: Mac OS Mojave 10.14.6
 - CPU: 2.2GHz Intel Core i7
 - Memory: 16GB
+- Python: 3.7.3
 - Browser: Google Chrome 88.0.4324.192
 
 ## Comment Style
@@ -66,8 +67,13 @@ pip install -U -r requirements.txt
 ```
 
 #### How to Execute command
-Execute a command below.
+Execute commands below.
 ```
+# NOTICE: if you have not migrated new migraitons, please migrate first.
+python manage.py migrate
+
+# import command
+cd dashboard
 python manage.py import --validation {option} --mode {option}
 # e.g.
 python manage.py import --validation no --mode first
@@ -228,7 +234,7 @@ The table shows following info.
 ### Problems
 
 #### No Error Logging
-So far, there is no error logging. If you use app in production level, you should decide error log specification and write code.
+There is no error logging so far. If you use app in production level, you should decide error log specification and write code.
 
 #### Data Filtering is executed by frontend Javascript
 
@@ -310,8 +316,9 @@ To execute test with driver, make sure below settings.
 ### Unit test
 
 #### Executing unit test and Creating coverage data
-Execute a command below.
+Execute commands below.
 ```
+cd dashboard
 coverage run --rcfile=tests/.coveragerc manage.py test tests.unittest
 ```
 Coverage module is executed with running tests and `.coverage` file will be created on current directory.
