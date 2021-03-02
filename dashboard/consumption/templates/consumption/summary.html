@@ -2,6 +2,223 @@
 
 {% block content %}
 
-<h1>{{message}}</h1>
+<h1>1. Chart</h1>
+
+{% comment %} include ChartCreator js function {% endcomment %}
+{% include 'consumption/common/chart-creator.html' %}
+
+<div class="chart">
+    <h2>1-1. Total Consumption every 30 minutes</h2>
+    <span>Time Period: </span>
+    <select id="total-charts-start-from"></select>
+    <span>~</span>
+    <select id="total-charts-end-to"></select>
+    <button id="total-charts-filter">Apply</button>
+
+    <canvas id="charts-total-consumption-chart"></canvas>
+</div>
+
+<div class="chart">
+    <h2>1-2. Average Consumption every 30 minutes</h2>
+    <span>Time Period: </span>
+    <select id="avg-charts-start-from"></select>
+    <span>~</span>
+    <select id="avg-charts-end-to"></select>
+    <button id="avg-charts-filter">Apply</button>
+
+    <canvas id="charts-avg-consumption-chart"></canvas>
+</div>
+
+{% comment %} include TableCreator js function {% endcomment %}
+{% include 'consumption/common/table-creator.html' %}
+
+<div class="table">
+    <h1>2. All Users and Its Average Consumption in All Periods</h1>
+    <h3>To see user's detail info, please click the row.</h3>
+    <button id="download-csv">Download CSV</button>
+    <div id="table"></div>
+</div>
+
+<script>
+// start function
+Summary();
+
+function Summary(){
+    window.onload = function() {
+        // create total chart content
+        ChartCreator(
+            {{ chart_data.labels|safe }},
+            {{ chart_data.total_data|safe }}.map(function(obj) { return Number(obj) }),
+            'total consumption (kWh)',
+            'rgb(255, 0, 0)',
+            document.getElementById('charts-total-consumption-chart').getContext('2d'),
+            document.getElementById('total-charts-start-from'),
+            document.getElementById('total-charts-end-to'),
+            document.getElementById('total-charts-filter')
+        );
+
+        // create avg chart content
+        ChartCreator(
+            {{ chart_data.labels|safe }},
+            {{ chart_data.avg_data|safe }}.map(function(obj) { return Number(obj) }),
+            'avg consumption (kWh)',
+            'rgb(0, 0, 255)',
+            document.getElementById('charts-avg-consumption-chart').getContext('2d'),
+            document.getElementById('avg-charts-start-from'),
+            document.getElementById('avg-charts-end-to'),
+            document.getElementById('avg-charts-filter')
+        );
+
+        // create table content
+        const tableData = createTableData();
+        TableCreator(
+            tableData.data,
+            tableData.columns,
+            tableData.cellClickCallBack,
+            'table',
+            document.getElementById('download-csv')
+        );
+    };
+
+    function createTableData(){
+        const maxUserAvgValue = Number({{ table_data.max_value|safe }}),
+            minUserAvgValue = Number({{ table_data.min_value|safe }});
+
+        // create table data
+        const tableData = {{ table_data.data|safe }}.map(function (data) {
+            return {
+                'id': data.id,
+                'area': data.area,
+                'tariff': data.tariff,
+                'average': Number(data.average),
+                'averagePercent': (Number(data.average) / maxUserAvgValue) * 100
+            }
+        });
+
+        const tableColumns = [
+            {title: "ID", field: "id", headerFilter: true},
+            {title: "Area", field: "area", headerFilter: true},
+            {title: "Tariff", field: "tariff", headerFilter: true},
+            {
+                title: "Average Consumption (kWh)",
+                field: "average",
+                headerFilter: createFilterEditor(minUserAvgValue, maxUserAvgValue),
+                headerFilterFunc: createFilterFunction(),
+                headerFilterLiveFilter: false
+            },
+            {
+                title: 'Percentage of consumption to top user\'s average consumption',
+                field: "averagePercent",
+                formatter: 'progress',
+                formatterParams: {
+                    legend: function(value) {return Number(value).toFixed(1) + '%'}
+                },
+                headerFilter: createFilterEditor(0, 100),
+                headerFilterFunc: createFilterFunction(),
+                width: 500,
+            },
+        ];
+
+        // open detail page if cell is clicked
+        function cellClickFunc(e, cell){
+            const value = cell.getRow().getCells()[0].getValue();
+            // use dummy "11111" for dynamic path replacing
+            window.open("{% url 'detail' 11111 %}".replace(/11111/, value));
+        }
+
+        return {
+            data: tableData,
+            columns: tableColumns,
+            cellClickCallBack: cellClickFunc
+        }
+
+    };
+
+    // create and return filter editor function
+    function createFilterEditor(minValue, maxValue){
+        // custom max min header filter's editor for table
+        return function minMaxFilterEditor(cell, onRendered, success, cancel, editorParams){
+            function keypress(e){
+                // press Enter key
+                if(e.keyCode == 13){
+                    buildValues();
+                }
+                // press Escape key
+                if(e.keyCode == 27){
+                    cancel();
+                }
+            }
+            // set values
+            function buildValues(){
+                success({
+                    start: start.value,
+                    end: end.value
+                });
+            }
+
+            // create min input
+            var start = document.createElement("input");
+            start.setAttribute("type", "number");
+            start.setAttribute("placeholder", "Min");
+            start.setAttribute("min", minValue);
+            start.setAttribute("max", maxValue);
+            start.style.padding = "4px";
+            start.style.width = "50%";
+            start.style.boxSizing = "border-box";
+            start.value = cell.getValue();
+            start.addEventListener("change", buildValues);
+            start.addEventListener("blur", buildValues);
+            start.addEventListener("keydown", keypress);
+
+            // create max input
+            var end = start.cloneNode();
+            end.setAttribute("placeholder", "Max");
+            end.addEventListener("change", buildValues);
+            end.addEventListener("blur", buildValues);
+            end.addEventListener("keydown", keypress);
+
+            var container = document.createElement("span");
+            container.appendChild(start);
+            container.appendChild(end);
+
+            return container;
+        }
+    };
+
+    // create and return filter function
+    function createFilterFunction(){
+        // custom max min header filter for table
+        return function minMaxFilterFunction(headerValue, rowValue, rowData, filterParams){
+            // headerValue - the value of the header filter element
+            // rowValue - the value of the column in this row
+            // rowData - the data for the row being filtered
+            // filterParams - params object passed to the headerFilterFuncParams property
+            if (rowValue) {
+                if (headerValue.start != "") {
+                    if (headerValue.end != "") {
+                        return rowValue >= headerValue.start && rowValue <= headerValue.end;
+                    } else {
+                        return rowValue >= headerValue.start;
+                    }
+                } else {
+                    if (headerValue.end != "") {
+                        return rowValue <= headerValue.end;
+                    }
+                }
+            }
+            return true;
+        }
+    };
+
+}
+
+
+</script>
+
+<style>
+select, button, span {
+    font-size: 1.5em;
+}
+</style>
 
 {% endblock %}

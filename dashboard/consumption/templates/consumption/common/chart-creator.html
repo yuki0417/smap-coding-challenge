@@ -1,0 +1,138 @@
+{% block content %}
+
+<script>
+
+function ChartCreator(
+    _labels, // label
+    _data, // data
+    _title, // title
+    _color, // color
+    _canvasCtx, // canvas context
+    _selectStartFrom, // select box element for start
+    _selectEndTo, // select box element for end
+    _applyButton // button element for apply
+) {
+    // filter datetime filterPattern
+    const filterPattern = /00:00:00$/;
+    // chart object
+    let _chart = null;
+
+    // call main function
+    createChart();
+
+    // create total and average chart
+    function createChart(){
+        // create time period select box's option
+        createTimePeriodOptions();
+        // create total consumption chart
+        _chart = createChartPart(
+            _canvasCtx,
+            _data,
+            _labels,
+            _title,
+            _color
+        );
+        // event for filter applying
+        applyFilterEvent();
+    }
+
+    // create time period select box's option
+    function createTimePeriodOptions(){
+        _labels.forEach(function(data, index) {
+            // NOTICE: showing only every AM 00:00
+            if (filterPattern.test(data)) {
+                const option = document.createElement("option");
+                option.value = index;
+                option.label = data;
+                _selectStartFrom.appendChild(option.cloneNode(true));
+                _selectEndTo.appendChild(option.cloneNode(true));
+            };
+        });
+        // when last one does not match filterPattern
+        const lastElement = _labels[_labels.length - 1];
+        if (!filterPattern.test(lastElement)) {
+            // append last element
+            const option = document.createElement("option");
+                option.value = _labels.length;
+                option.label = lastElement;
+                _selectStartFrom.appendChild(option.cloneNode(true));
+
+                // select last element for "charts-end-to" select box
+                option.setAttribute('selected', 'selected');
+                _selectEndTo.appendChild(option.cloneNode(true));
+        }
+    }
+
+    // create chart
+    function createChartPart(context, dataList, labelList, labelName, color) {
+        const config = {
+            type: 'line',
+            data: {
+                datasets: [{
+                    data: dataList,
+                    lineTension: 0,
+                    backgroundColor: color,
+                    label: labelName
+                }],
+                labels: labelList
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    xAxes: [{
+                        type: 'time',
+                        time: {
+                            unit: 'hour',
+                            displayFormats: {
+                                hour: 'yyyy MMM D HH:mm'
+                            }
+                        },
+                    }],
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true
+                        }
+                    }]
+                }
+            }
+        };
+
+        return new Chart(context, config);
+    }
+
+    // recreate chart
+    function recreateChartPart(start, end){
+        // alert if the start is after the end
+        if (end - start < 1) {
+            alert('Invalid time period');
+            return;
+        }
+        // destroy chart before recreating
+        _chart.destroy();
+
+        // create chart aggain with specified time period
+        const sliceEnd = end + 1;
+        _chart = createChartPart(
+            _canvasCtx,
+            _data.slice(start, sliceEnd),
+            _labels.slice(start, sliceEnd),
+            _title,
+            _color
+        );
+    }
+
+    // filter apply
+    function applyFilterEvent(){
+        // filter button
+        _applyButton.addEventListener("click", function() {
+            recreateChartPart(
+                Number(_selectStartFrom.value),
+                Number(_selectEndTo.value)
+            );
+        });
+    }
+}
+
+</script>
+
+{% endblock %}

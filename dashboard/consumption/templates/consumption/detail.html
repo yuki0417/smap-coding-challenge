@@ -2,4 +2,68 @@
 
 {% block content %}
 
+{% comment %} include ChartCreator js function {% endcomment %}
+{% include 'consumption/common/chart-creator.html' %}
+
+<div class="chart">
+    <h2>1. User id {{ user_id }} Consumption every 30 minutes</h2>
+    <span>Time Period:</span>
+    <select id="user-charts-start-from"></select>
+    <span>~</span>
+    <select id="user-charts-end-to"></select>
+    <button id="user-charts-filter">Apply</button>
+
+    <canvas id="charts-user-consumption-chart"></canvas>
+</div>
+<div class='user-info'>
+    <h2>2. User Info</h2>
+    <table id="user-info-table">
+        <tr>
+            <th>id</th>
+            <th>area</th>
+            <th>tariff</th>
+        </tr>
+        <tr>
+            <td>{{ user_id }}</td>
+            <td>{{ area }}</td>
+            <td>{{ tariff }}</td>
+        </tr>
+    </table>
+</div>
+
+<script>
+// start function
+Detail();
+
+function Detail(){
+    window.onload = function() {
+        // create user chart content
+        ChartCreator(
+            {{ chart_data.labels|safe }},
+            {{ chart_data.data|safe }}.map(function(obj) { return Number(obj) }),
+            'consumption (kWh)',
+            'rgb(255, 0, 0)',
+            document.getElementById('charts-user-consumption-chart').getContext('2d'),
+            document.getElementById('user-charts-start-from'),
+            document.getElementById('user-charts-end-to'),
+            document.getElementById('user-charts-filter')
+        );
+    };
+}
+
+</script>
+
+<style>
+select, button, span {
+    font-size: 1.5em;
+}
+table, th, td {
+  border: 1px solid black;
+    padding: 10px;
+}
+table {
+    border-collapse:  collapse;
+}
+</style>
+
 {% endblock %}
